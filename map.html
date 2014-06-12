@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head><title>Advenue Access</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style type="text/css">
+html, body {
+	height: 100%;
+}
+body {
+	/*color: #7A8F99;*/
+	color: #000000;
+	margin: 0px;
+	font-family: "proxima-nova","helvetica neue",helvetica,arial,sans-serif;
+	background: none repeat scroll 0 0 #D6DFE3;
+}
+div#header {
+	width: 100%;
+	height: 40px;
+	margin: 0px;
+	background: radial-gradient(circle farthest-corner at center center , #2F6D87 0%, #2A637B 100%) repeat scroll 0 0 #2A637B;
+}
+div.headertext {
+	width: 50%;
+	text-align: center;
+	padding-top: 10px;
+	margin: 0 auto;
+	color: #B1DCEF;
+}
+div#footer {
+	position: fixed;
+	z-index: 10000000;
+	bottom: 0px;
+	width: 100%;
+	height: 20px;
+	margin: 0px;
+	background: none repeat scroll 0 0 #EFF5F9;
+}
+div.footertext {
+	width: 50%;
+	text-align: center;
+	padding-top: 2px;
+	margin: 0 auto;
+	font-size: 11px;
+	color: #93B7C7;
+}
+#wrapper {
+	float: left;
+	width: 100%;
+	height: 95%;
+}
+#map {
+	/*position: relative;
+	width: 1024px;
+	height: 570px;*/
+	margin-right: 300px;
+	/*height: 570px;*/
+	height: 95%;
+}
+div#scroller {
+	/*width: 300px;
+	height: 570px;*/
+	float: left;
+	width: 300px;
+	margin-left: -300px;
+	height: 570px;
+}
+.item {
+	display: none;
+	cursor: pointer;
+	color: #555;
+	font-size: 13px;
+	border-radius: 10px;
+	padding: 10px 10px 10px 10px;
+	margin: 10px;
+	height: 50px;
+}
+.green {
+	background: #E9FFD9 no-repeat 10px 50%;
+	border: 1px solid #A6CA8A;
+}
+.blue {
+	background: #E3F7FC no-repeat 10px 50%;
+	border: 1px solid #8ED9F6;
+}
+#clear {
+	clear: both;
+}
+</style>
+<link rel="stylesheet" href="http://leafletjs.com/dist/leaflet.css" />
+<script type="text/javascript" src="/socket.io/socket.io.js"></script>
+<script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script type="text/javascript" src="http://leafletjs.com/dist/leaflet.js"></script>
+</head>
+<body>
+<div id="header"><div class="headertext">Advenue Platform Users</div></div>
+<div id="wrapper">
+	<div id="map"></div>
+</div>
+<div id="scroller">
+	<div class="item"></div>
+	<div class="item"></div>
+	<div class="item"></div>
+	<div class="item"></div>
+	<div class="item"></div>
+	<div class="item"></div>
+	<div class="item"></div>
+</div>
+<div id="clear"></div>
+<div id="footer"><div class="footertext">&copy; 2014 Innity</div></div>
+<script type="text/javascript">
+// Map config
+var config = {};
+config.mapID = "examples.map-i86knfo3";
+config.markerTimeOut = 60000;
+config.itemLimit = 7;
+config.lat = 3.1667;
+config.lon = 101.7;
+config.zoomLevel = 6;
+// Markers array
+var markers = [];
+// Custom icons
+var RedIcon = L.Icon.Default.extend({
+	options: {
+		iconUrl: "ui/marker-icon-red.png"
+	}
+});
+var GreenIcon = L.Icon.Default.extend({
+	options: {
+		iconUrl: "ui/marker-icon-green.png"
+	}
+});
+var redIcon = new RedIcon();
+var greenIcon = new GreenIcon();
+// Map initialization
+var map = L.map("map").setView([config.lat, config.lon], config.zoomLevel);
+L.tileLayer("https://{s}.tiles.mapbox.com/v3/{id}/{z}/{x}/{y}.png", {
+	maxZoom: 18,
+	attribution: "Map data &copy;2014",
+	id: config.mapID
+}).addTo(map);
+function init() {
+	var m = L.marker([config.lat, config.lon], {icon: redIcon}).addTo(map);
+	m.bindPopup("<b>Innity HQ</b><br>Start Here", {"closeButton": false}).openPopup();
+	markers.unshift(m);
+	//window.setTimeout(removeMarker, config.markerTimeOut);
+}
+function addMarker(data) {
+	var options = {}
+	if(data.internal) {
+		options.icon = greenIcon;
+	}
+	var m = L.marker([data.lat, data.lon], options).addTo(map);
+	m.bindPopup("<b>" + data.type + "</b><br>" + data.user, {"autoPan":false, "closeButton":false}).openPopup();
+	map.panTo([data.lat, data.lon], {"duration":3});
+	data.marker = m;
+	// Add to feed
+	addItem(data);
+	markers.unshift(m);
+	// Clear after 1 minute
+	//window.setTimeout(removeMarker, config.markerTimeOut);
+}
+function removeMarker() {
+	if(markers.length > config.itemLimit) {
+		var m = markers.pop();
+		m.closePopup();
+		m.unbindPopup();
+		map.removeLayer(m);
+	}
+}
+function addItem(data) {
+	var cssClass = "item blue";
+	if(data.internal) {
+		cssClass = "item green";
+	}
+	var message = data.type + " <b>" + data.user + "</b> has just logged in from <b>" + data.cc + "</b> at " + get_time();
+	var item = $("<div>").addClass(cssClass).css("display", "none").html(message).click(function(){map.setView([data.lat, data.lon]); data.marker.openPopup();}).prependTo("#scroller").slideDown();
+	$("#scroller div:last-child").animate({height:"0px"}, function() {
+		$(this).remove();
+		removeMarker();
+	});
+}
+function list_check() {
+	// jQuery bug? Item list not clear if receive multiple requests at once
+	var cnt  = $("#scroller div").length;
+	if(cnt > config.itemLimit) {
+		var diff = cnt - config.itemLimit;
+		for(var i=0; i<diff; i++) {
+			$("#scroller div:last-child").animate({height:"0px"}, function() {
+				$(this).remove();
+				removeMarker();
+			});
+		}
+	}
+}
+function get_time() {
+	var hour = new Date().getHours();
+	var min  = new Date().getMinutes();
+	var ampm = hour >= 12 ? "pm" : "am";
+	hour = hour % 12;
+	hour = hour ? hour : 12;
+	min  = min < 10 ? "0" + min : min;
+	return hour + ":" + min + " " + ampm;
+}
+// Initialize
+init();
+// Socket.io initialization
+var server = window.location.protocol + "//" + window.location.host;
+var socket = io.connect(server);
+socket.on("connect", function() {});
+socket.on("updateMap", function(data) {
+	addMarker(data);
+});
+window.setInterval(list_check, 180000);
+</script>
+</body>
+</html>
